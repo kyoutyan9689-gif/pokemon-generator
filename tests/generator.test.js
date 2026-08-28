@@ -2,11 +2,13 @@ const assert = require("node:assert/strict");
 
 // DOM参照だけを最小限に代替し、ブラウザ用スクリプトの純粋関数を読み込む。
 global.document = {
-  querySelector: selector => selector === "#generate-button"
-    ? { addEventListener() {} }
-    : { textContent: "", innerHTML: "", value: "500", focus() {} }
+  querySelector: () => ({
+    textContent: "", innerHTML: "", value: "", focus() {}, addEventListener() {}
+  })
 };
-const { generateName, generateTypes, generateStats, ARCHETYPES } = require("../app.js");
+const {
+  generateName, generateTypes, generateStats, calculateActualStat, allocatePoints, ARCHETYPES
+} = require("../app.js");
 
 for (let run = 0; run < 1000; run += 1) {
   const total = 300 + Math.floor(Math.random() * 421);
@@ -20,4 +22,21 @@ for (let run = 0; run < 1000; run += 1) {
   assert.equal(new Set(types).size, types.length);
 }
 
-console.log("generator logic: 1000 randomized cases passed");
+// 32 / 32 / 2 は上限ちょうどまで割り振れ、それ以上は追加されない。
+let points = Array(6).fill(0);
+points = allocatePoints(points, 0, 32);
+points = allocatePoints(points, 1, 32);
+points = allocatePoints(points, 2, 2);
+assert.deepEqual(points, [32, 32, 2, 0, 0, 0]);
+assert.deepEqual(allocatePoints(points, 3, 1), points);
+assert.deepEqual(allocatePoints(Array(6).fill(0), 0, 99), [32, 0, 0, 0, 0, 0]);
+assert.deepEqual(allocatePoints([32, 32, 0, 0, 0, 0], 2, 32), [32, 32, 2, 0, 0, 0]);
+
+// Lv.50・個体値31相当。HPはB+75、その他はB+20を基礎に能力ポイントと性格を反映する。
+assert.equal(calculateActualStat(100, 32, 0), 207);
+assert.equal(calculateActualStat(120, 32, 1), 172);
+assert.equal(calculateActualStat(80, 2, 2), 102);
+assert.equal(calculateActualStat(120, 32, 1, 1, -1), 189);
+assert.equal(calculateActualStat(120, 32, 1, -1, 1), 154);
+
+console.log("generator and training simulator logic: all cases passed");

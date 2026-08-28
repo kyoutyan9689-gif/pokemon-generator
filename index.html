@@ -53,6 +53,34 @@
         <div id="stats-list" class="stats-list"></div>
         <div class="scale" aria-hidden="true"><span>0</span><span>50</span><span>100</span><span>150</span><span>180</span></div>
       </section>
+
+      <section class="training-card" aria-labelledby="training-heading">
+        <div class="training-heading">
+          <div>
+            <p class="section-number">TRAINING / 03</p>
+            <h2 id="training-heading">育成シミュレーター</h2>
+          </div>
+          <span class="level-badge">Lv.50 / 個体値31</span>
+        </div>
+        <div class="nature-panel">
+          <h3>性格補正</h3>
+          <div class="nature-fields">
+            <label>上がる能力
+              <select id="nature-up" aria-label="性格で上がる能力"></select>
+            </label>
+            <label>下がる能力
+              <select id="nature-down" aria-label="性格で下がる能力"></select>
+            </label>
+          </div>
+          <p>上昇 1.1倍・下降 0.9倍</p>
+        </div>
+        <div id="training-stats" class="training-stats"></div>
+        <div class="points-summary" aria-live="polite">
+          <span>能力ポイント</span>
+          <strong><span id="used-points">0</span> / 66</strong>
+        </div>
+        <button id="reset-points" class="reset-button" type="button">能力ポイントをリセット</button>
+      </section>
       <footer>FAN-MADE ORIGINAL MONSTER GENERATOR</footer>
     </main>
     <script src="app.js"></script>
