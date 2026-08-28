@@ -1,5 +1,9 @@
 const TYPES = ["ノーマル", "ほのお", "みず", "でんき", "くさ", "こおり", "かくとう", "どく", "じめん", "ひこう", "エスパー", "むし", "いわ", "ゴースト", "ドラゴン", "あく", "はがね", "フェアリー"];
 const STAT_NAMES = ["HP", "こうげき", "ぼうぎょ", "とくこう", "とくぼう", "すばやさ"];
+const MAX_STAT_POINTS = 32;
+const MAX_TOTAL_POINTS = 66;
+let currentStats = [];
+let abilityPoints = Array(6).fill(0);
 
 // HP・攻撃・防御・特攻・特防・素早さの順。型の特徴を比率で表す。
 const ARCHETYPES = [
@@ -63,9 +67,58 @@ function generateStats(total, baseWeights) {
   return stats;
 }
 
+function calculateActualStat(baseStat, points, statIndex, natureUp = -1, natureDown = -1) {
+  const neutralValue = baseStat + (statIndex === 0 ? 75 : 20) + points;
+  if (statIndex === 0) return neutralValue;
+  const modifier = statIndex === natureUp ? 1.1 : statIndex === natureDown ? .9 : 1;
+  return Math.floor(neutralValue * modifier);
+}
+
+function allocatePoints(points, statIndex, requestedValue) {
+  const next = [...points];
+  const value = Math.max(0, Math.min(MAX_STAT_POINTS, Math.trunc(Number(requestedValue) || 0)));
+  const available = MAX_TOTAL_POINTS - (points.reduce((sum, point) => sum + point, 0) - points[statIndex]);
+  next[statIndex] = Math.min(value, available);
+  return next;
+}
+
+function natureOptions() {
+  return `<option value="">補正なし</option>${STAT_NAMES.slice(1).map((name, index) => `<option value="${index + 1}">${name}</option>`).join("")}`;
+}
+
+function selectedNature(selector) {
+  const value = document.querySelector(selector).value;
+  return value === "" ? -1 : Number(value);
+}
+
+function renderTrainingSimulator() {
+  if (!currentStats.length) return;
+  const used = abilityPoints.reduce((sum, point) => sum + point, 0);
+  const natureUp = selectedNature("#nature-up");
+  const natureDown = selectedNature("#nature-down");
+  document.querySelector("#training-stats").innerHTML = currentStats.map((baseStat, index) => {
+    const points = abilityPoints[index];
+    const canAdd = points < MAX_STAT_POINTS && used < MAX_TOTAL_POINTS;
+    return `<article class="training-stat">
+      <div class="training-stat-info"><h3>${STAT_NAMES[index]}</h3><span>種族値 <strong>${baseStat}</strong></span></div>
+      <div class="point-control" aria-label="${STAT_NAMES[index]}の能力ポイント">
+        <button type="button" data-stat="${index}" data-value="0" ${points === 0 ? "disabled" : ""}>0</button>
+        <button type="button" data-stat="${index}" data-delta="-1" aria-label="${STAT_NAMES[index]}を1減らす" ${points === 0 ? "disabled" : ""}>−</button>
+        <output aria-label="能力ポイント">${points}</output>
+        <button type="button" data-stat="${index}" data-delta="1" aria-label="${STAT_NAMES[index]}を1増やす" ${canAdd ? "" : "disabled"}>＋</button>
+        <button type="button" data-stat="${index}" data-value="32" ${canAdd ? "" : "disabled"}>32</button>
+      </div>
+      <p class="actual-stat">実数値 <strong>${calculateActualStat(baseStat, points, index, natureUp, natureDown)}</strong></p>
+    </article>`;
+  }).join("");
+  document.querySelector("#used-points").textContent = used;
+}
+
 function renderMonster(total) {
   const [archetype, weights] = pick(ARCHETYPES);
   const stats = generateStats(total, weights);
+  currentStats = stats;
+  abilityPoints = Array(6).fill(0);
   document.querySelector("#monster-name").textContent = generateName();
   document.querySelector("#archetype").textContent = archetype;
   document.querySelector("#display-total").textContent = total;
@@ -77,10 +130,33 @@ function renderMonster(total) {
       <span class="stat-value">${value}</span>
       <div class="bar-track" role="img" aria-label="${STAT_NAMES[index]} ${value}"><div class="bar" style="width: ${value / 180 * 100}%"></div></div>
     </div>`).join("");
+  renderTrainingSimulator();
 }
 
 const input = document.querySelector("#total-input");
 const error = document.querySelector("#input-error");
+document.querySelector("#nature-up").innerHTML = natureOptions();
+document.querySelector("#nature-down").innerHTML = natureOptions();
+["#nature-up", "#nature-down"].forEach(selector => document.querySelector(selector).addEventListener("change", event => {
+  const otherSelector = selector === "#nature-up" ? "#nature-down" : "#nature-up";
+  const other = document.querySelector(otherSelector);
+  if (event.target.value && event.target.value === other.value) other.value = "";
+  renderTrainingSimulator();
+}));
+document.querySelector("#training-stats").addEventListener("click", event => {
+  const button = event.target.closest("button[data-stat]");
+  if (!button) return;
+  const statIndex = Number(button.dataset.stat);
+  const requestedValue = button.dataset.value === undefined
+    ? abilityPoints[statIndex] + Number(button.dataset.delta)
+    : Number(button.dataset.value);
+  abilityPoints = allocatePoints(abilityPoints, statIndex, requestedValue);
+  renderTrainingSimulator();
+});
+document.querySelector("#reset-points").addEventListener("click", () => {
+  abilityPoints = Array(6).fill(0);
+  renderTrainingSimulator();
+});
 document.querySelector("#generate-button").addEventListener("click", () => {
   const total = Number(input.value);
   if (!Number.isInteger(total) || total < 300 || total > 720) {
@@ -96,4 +172,7 @@ document.querySelector("#generate-button").addEventListener("click", () => {
 renderMonster(500);
 
 // テストから純粋な生成ロジックを検証できるようにする。
-if (typeof module !== "undefined") module.exports = { generateName, generateTypes, generateStats, ARCHETYPES };
+if (typeof module !== "undefined") module.exports = {
+  generateName, generateTypes, generateStats, calculateActualStat, allocatePoints,
+  ARCHETYPES, MAX_STAT_POINTS, MAX_TOTAL_POINTS
+};
